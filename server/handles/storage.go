@@ -208,3 +208,32 @@ func LoadAllStorages(c *gin.Context) {
 	}(storages)
 	common.SuccessResp(c)
 }
+
+func RefreshStorage(c *gin.Context) {
+	idStr := c.Query("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		common.ErrorResp(c, err, 400)
+		return
+	}
+	storage, err := db.GetStorageById(uint(id))
+	if err != nil {
+		common.ErrorResp(c, err, 500, true)
+		return
+	}
+	storageDriver, err := op.GetStorageByMountPath(storage.MountPath)
+	if err != nil {
+		common.ErrorResp(c, err, 500, true)
+		return
+	}
+	refresher, ok := storageDriver.(driver.Refresher)
+	if !ok {
+		common.ErrorResp(c, errors.New("this storage does not support refresh"), 400)
+		return
+	}
+	if err := refresher.Refresh(c.Request.Context()); err != nil {
+		common.ErrorResp(c, err, 500, true)
+		return
+	}
+	common.SuccessResp(c)
+}

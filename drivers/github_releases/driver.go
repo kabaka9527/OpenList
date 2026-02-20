@@ -6,6 +6,7 @@ import (
 	"net/http"
 	stdpath "path"
 	"strings"
+	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
@@ -45,7 +46,7 @@ func (d *GithubReleases) List(ctx context.Context, dir model.Obj, args model.Lis
 		point := &d.points[i]
 
 		if !d.Addition.ShowAllVersion { // latest
-			point.RequestRelease(d.GetRequest, args.Refresh)
+			point.RequestRelease(d.GetRequest, args.Refresh, d.Addition.RefreshInterval)
 
 			if point.Point == path { // 与仓库路径相同
 				files = append(files, point.GetLatestRelease()...)
@@ -82,7 +83,7 @@ func (d *GithubReleases) List(ctx context.Context, dir model.Obj, args model.Lis
 				}
 			}
 		} else { // all version
-			point.RequestReleases(d.GetRequest, args.Refresh)
+			point.RequestReleases(d.GetRequest, args.Refresh, d.Addition.RefreshInterval)
 
 			if point.Point == path { // 与仓库路径相同
 				files = append(files, point.GetAllVersion()...)
@@ -172,4 +173,15 @@ func (d *GithubReleases) Copy(ctx context.Context, srcObj, dstDir model.Obj) (mo
 func (d *GithubReleases) Remove(ctx context.Context, obj model.Obj) error {
 	// TODO remove obj, optional
 	return errs.NotImplement
+}
+
+// Refresh 强制刷新所有挂载点的缓存
+func (d *GithubReleases) Refresh(ctx context.Context) error {
+	for i := range d.points {
+		d.points[i].Release = nil
+		d.points[i].Releases = nil
+		d.points[i].OtherFile = nil
+		d.points[i].LastRefresh = time.Time{} // 重置刷新时间
+	}
+	return nil
 }

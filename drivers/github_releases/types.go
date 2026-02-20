@@ -11,36 +11,50 @@ import (
 )
 
 type MountPoint struct {
-	Point     string      // 挂载点
-	Repo      string      // 仓库名 owner/repo
-	Release   *Release    // Release 指针 latest
-	Releases  *[]Release  // []Release 指针
-	OtherFile *[]FileInfo // 仓库根目录下的其他文件
+	Point       string      // 挂载点
+	Repo        string      // 仓库名 owner/repo
+	Release     *Release    // Release 指针 latest
+	Releases    *[]Release  // []Release 指针
+	OtherFile   *[]FileInfo // 仓库根目录下的其他文件
+	LastRefresh time.Time   // 最后刷新时间
+}
+
+// 需要刷新（根据时间间隔判断）
+func (m *MountPoint) needRefresh(interval int) bool {
+	if interval <= 0 {
+		return false
+	}
+	if m.LastRefresh.IsZero() {
+		return true
+	}
+	return time.Since(m.LastRefresh) >= time.Duration(interval)*time.Minute
 }
 
 // 请求最新版本
-func (m *MountPoint) RequestRelease(get func(url string) (*resty.Response, error), refresh bool) {
+func (m *MountPoint) RequestRelease(get func(url string) (*resty.Response, error), refresh bool, refreshInterval int) {
 	if m.Repo == "" {
 		return
 	}
 
-	if m.Release == nil || refresh {
+	if m.Release == nil || refresh || m.needRefresh(refreshInterval) {
 		resp, _ := get("https://api.github.com/repos/" + m.Repo + "/releases/latest")
 		m.Release = new(Release)
 		json.Unmarshal(resp.Body(), m.Release)
+		m.LastRefresh = time.Now()
 	}
 }
 
 // 请求所有版本
-func (m *MountPoint) RequestReleases(get func(url string) (*resty.Response, error), refresh bool) {
+func (m *MountPoint) RequestReleases(get func(url string) (*resty.Response, error), refresh bool, refreshInterval int) {
 	if m.Repo == "" {
 		return
 	}
 
-	if m.Releases == nil || refresh {
+	if m.Releases == nil || refresh || m.needRefresh(refreshInterval) {
 		resp, _ := get("https://api.github.com/repos/" + m.Repo + "/releases")
 		m.Releases = new([]Release)
 		json.Unmarshal(resp.Body(), m.Releases)
+		m.LastRefresh = time.Now()
 	}
 }
 

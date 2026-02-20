@@ -201,6 +201,11 @@ type WithDetails interface {
 	GetDetails(ctx context.Context) (*model.StorageDetails, error)
 }
 
+type Refresher interface {
+	// Refresh refresh the storage cache
+	Refresh(ctx context.Context) error
+}
+
 type Reference interface {
 	InitReference(storage Driver) error
 }
