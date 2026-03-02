@@ -16,31 +16,38 @@ type MountPoint struct {
 	Release   *Release    // Release 指针 latest
 	Releases  *[]Release  // []Release 指针
 	OtherFile *[]FileInfo // 仓库根目录下的其他文件
+	CachedAt  time.Time   // 缓存时间
+}
+
+func (m *MountPoint) isExpired(cacheExpiration int) bool {
+	return m.CachedAt.IsZero() || time.Since(m.CachedAt) > time.Minute*time.Duration(cacheExpiration)
 }
 
 // 请求最新版本
-func (m *MountPoint) RequestRelease(get func(url string) (*resty.Response, error), refresh bool) {
+func (m *MountPoint) RequestRelease(get func(url string) (*resty.Response, error), refresh bool, cacheExpiration int) {
 	if m.Repo == "" {
 		return
 	}
 
-	if m.Release == nil || refresh {
+	if m.Release == nil || refresh || m.isExpired(cacheExpiration) {
 		resp, _ := get("https://api.github.com/repos/" + m.Repo + "/releases/latest")
 		m.Release = new(Release)
 		json.Unmarshal(resp.Body(), m.Release)
+		m.CachedAt = time.Now()
 	}
 }
 
 // 请求所有版本
-func (m *MountPoint) RequestReleases(get func(url string) (*resty.Response, error), refresh bool) {
+func (m *MountPoint) RequestReleases(get func(url string) (*resty.Response, error), refresh bool, cacheExpiration int) {
 	if m.Repo == "" {
 		return
 	}
 
-	if m.Releases == nil || refresh {
+	if m.Releases == nil || refresh || m.isExpired(cacheExpiration) {
 		resp, _ := get("https://api.github.com/repos/" + m.Repo + "/releases")
 		m.Releases = new([]Release)
 		json.Unmarshal(resp.Body(), m.Releases)
+		m.CachedAt = time.Now()
 	}
 }
 
@@ -198,8 +205,8 @@ func (m *MountPoint) GetSourceCodeByTagName(tagName string) []File {
 	return nil
 }
 
-func (m *MountPoint) GetOtherFile(get func(url string) (*resty.Response, error), refresh bool) []File {
-	if m.OtherFile == nil || refresh {
+func (m *MountPoint) GetOtherFile(get func(url string) (*resty.Response, error), refresh bool, cacheExpiration int) []File {
+	if m.OtherFile == nil || refresh || m.isExpired(cacheExpiration) {
 		resp, _ := get("https://api.github.com/repos/" + m.Repo + "/contents")
 		m.OtherFile = new([]FileInfo)
 		json.Unmarshal(resp.Body(), m.OtherFile)

@@ -40,17 +40,18 @@ func (d *GithubReleases) Drop(ctx context.Context) error {
 func (d *GithubReleases) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([]model.Obj, error) {
 	files := make([]File, 0)
 	path := fmt.Sprintf("/%s", strings.Trim(dir.GetPath(), "/"))
+	cacheExpiration := d.GetStorage().CacheExpiration
 
 	for i := range d.points {
 		point := &d.points[i]
 
 		if !d.Addition.ShowAllVersion { // latest
-			point.RequestRelease(d.GetRequest, args.Refresh)
+			point.RequestRelease(d.GetRequest, args.Refresh, cacheExpiration)
 
 			if point.Point == path { // 与仓库路径相同
 				files = append(files, point.GetLatestRelease()...)
 				if d.Addition.ShowReadme {
-					files = append(files, point.GetOtherFile(d.GetRequest, args.Refresh)...)
+					files = append(files, point.GetOtherFile(d.GetRequest, args.Refresh, cacheExpiration)...)
 				}
 				if d.Addition.ShowSourceCode {
 					files = append(files, point.GetSourceCode()...)
@@ -82,12 +83,12 @@ func (d *GithubReleases) List(ctx context.Context, dir model.Obj, args model.Lis
 				}
 			}
 		} else { // all version
-			point.RequestReleases(d.GetRequest, args.Refresh)
+			point.RequestReleases(d.GetRequest, args.Refresh, cacheExpiration)
 
 			if point.Point == path { // 与仓库路径相同
 				files = append(files, point.GetAllVersion()...)
 				if d.Addition.ShowReadme {
-					files = append(files, point.GetOtherFile(d.GetRequest, args.Refresh)...)
+					files = append(files, point.GetOtherFile(d.GetRequest, args.Refresh, cacheExpiration)...)
 				}
 			} else if strings.HasPrefix(point.Point, path) { // 仓库目录的父目录
 				nextDir := GetNextDir(point.Point, path)
